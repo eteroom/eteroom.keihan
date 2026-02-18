@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>京阪電車 時刻表（京橋 ↔ 野江）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Inter', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .keihan-green { background-color: #004a26; }
+        .keihan-light-green { background-color: #1a5e3a; }
+        .header-gradient { background: linear-gradient(135deg, #004a26 0%, #006b38 100%); }
+        
+        .timetable-row:nth-child(even) { background-color: #fcfdfc; }
+        .next-train-card { background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+
+        .active-hour { background-color: #f0fdf4; border-left: 4px solid #004a26; }
+        .status-badge { transition: all 0.2s; }
+        .status-badge:active { transform: scale(0.95); opacity: 0.8; }
+        
+        /* スムーズスクロール */
+        html { scroll-behavior: smooth; }
+        
+        /* カスタムスクロールバー */
+        #timetable-container::-webkit-scrollbar { width: 4px; }
+        #timetable-container::-webkit-scrollbar-track { background: #f1f1f1; }
+        #timetable-container::-webkit-scrollbar-thumb { background: #004a26; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex justify-center">
+
+<div id="app" class="w-full max-w-md bg-white shadow-2xl min-h-screen flex flex-col relative">
+    <!-- ステータスバー風ヘッダー -->
+    <header class="header-gradient text-white pt-8 pb-6 px-6 shadow-lg sticky top-0 z-30">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="bg-white text-green-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded">KEIHAN</span>
+                    <h1 class="text-xl font-bold tracking-tight">京橋 <span class="text-sm font-light opacity-60">TO</span> 野江</h1>
+                </div>
+                <p class="text-xs opacity-70" id="current-date-display">----年--月--日 (--)</p>
+            </div>
+            <a href="https://www.keihan.co.jp/traffic/information/" target="_blank" class="status-badge bg-yellow-400 text-green-950 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-900 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-800"></span>
+                </span>
+                運行状況
+            </a>
+        </div>
+
+        <!-- 次の電車情報のメインカード -->
+        <div class="next-train-card rounded-2xl p-5 shadow-inner">
+            <div class="flex justify-between items-start">
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-1">Next Train</span>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-5xl font-black tracking-tighter" id="next-train-time">--:--</span>
+                        <span class="text-xs font-bold opacity-70" id="next-train-dest">発</span>
+                    </div>
+                </div>
+                <div class="text-right flex flex-col items-end">
+                    <div id="timer-box" class="bg-white/20 px-3 py-1 rounded-lg mb-2">
+                        <span class="text-[10px] block opacity-80 font-bold leading-none mb-1" id="timer-label">出発まで</span>
+                        <span class="text-xl font-mono font-bold pulse" id="arrival-timer">--:--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- タブ切り替え（フローティング） -->
+    <div class="bg-white px-4 py-3 flex gap-2 sticky top-[188px] z-30 border-b shadow-sm">
+        <button onclick="switchTab('weekday')" id="tab-weekday" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-300 bg-gray-100 text-gray-500">平日ダイヤ</button>
+        <button onclick="switchTab('holiday')" id="tab-holiday" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-300 bg-gray-100 text-gray-500">土曜・休日ダイヤ</button>
+    </div>
+
+    <!-- 時刻表リスト -->
+    <main class="flex-1 overflow-y-auto pb-8" id="timetable-container">
+        <!-- JSで生成 -->
+    </main>
+
+    <!-- シンプルなフッター（時刻表アイコンのみ） -->
+    <nav class="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-md border-t border-gray-100 flex justify-center py-3 px-2 z-40">
+        <button class="flex flex-col items-center gap-1 text-green-800">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/><path d="M13 7h-2v6h6v-2h-4z"/></svg>
+            <span class="text-[10px] font-bold">時刻表</span>
+        </button>
+    </nav>
+</div>
+
+<script>
+    const data = {
+        weekday: {
+            5: [10, 39, 47, 57],
+            6: [10, 22, 29, 42, 53],
+            7: [3, 17, 29, 42, 52, 58],
+            8: [6, 14, 21, 26, 32, 37, 48, 52, 57],
+            9: [3, 12, 26, 39, 49],
+            10: [1, 12, 23, 36, 48],
+            11: [0, 12, 24, 36, 48],
+            12: [1, 13, 25, 37, 49],
+            13: [1, 13, 25, 37, 49],
+            14: [1, 13, 25, 37, 49],
+            15: [1, 13, 25, 37, 49],
+            16: [1, 13, 25, 38, 51],
+            17: [5, 17, 27, 39, 51],
+            18: [1, 11, 19, 28, 36, 42, 50, 58],
+            19: [6, 14, 27, 39, 51],
+            20: [4, 16, 28, 39, 51],
+            21: [2, 14, 25, 37, 49],
+            22: [1, 14, 28, 43, 58],
+            23: [13, 28, 43, 58],
+            0: [13]
+        },
+        holiday: {
+            5: [10, 39, 47],
+            6: [4, 19, 34, 48],
+            7: [1, 13, 25, 37, 49],
+            8: [2, 15, 27, 38, 49],
+            9: [1, 13, 24, 36, 48],
+            10: [1, 13, 25, 38, 50],
+            11: [2, 13, 24, 36, 48],
+            12: [0, 12, 24, 37, 48],
+            13: [0, 12, 24, 37, 48],
+            14: [0, 12, 24, 37, 48],
+            15: [0, 12, 24, 37, 48],
+            16: [0, 11, 23, 35, 50],
+            17: [3, 15, 28, 39, 50],
+            18: [2, 14, 26, 37, 48],
+            19: [2, 13, 25, 37, 50],
+            20: [3, 18, 32, 48],
+            21: [3, 18, 33, 48],
+            22: [3, 18, 31, 45],
+            23: [0, 10, 22, 35, 52],
+            0: [8]
+        }
+    };
+
+    let currentMode = 'weekday';
+    let isFirstLoad = true;
+
+    window.onload = () => {
+        const day = new Date().getDay();
+        if (day === 0 || day === 6) {
+            switchTab('holiday');
+        } else {
+            switchTab('weekday');
+        }
+        
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        
+        setTimeout(scrollToCurrentTime, 300);
+    };
+
+    function switchTab(mode) {
+        currentMode = mode;
+        const btnW = document.getElementById('tab-weekday');
+        const btnH = document.getElementById('tab-holiday');
+        
+        if (mode === 'weekday') {
+            btnW.className = 'flex-1 py-2.5 text-xs font-bold rounded-xl bg-green-800 text-white shadow-md';
+            btnH.className = 'flex-1 py-2.5 text-xs font-bold rounded-xl bg-gray-100 text-gray-500';
+        } else {
+            btnH.className = 'flex-1 py-2.5 text-xs font-bold rounded-xl bg-green-800 text-white shadow-md';
+            btnW.className = 'flex-1 py-2.5 text-xs font-bold rounded-xl bg-gray-100 text-gray-500';
+        }
+        
+        renderTimetable();
+        updateDateTime();
+        if (!isFirstLoad) scrollToCurrentTime();
+        isFirstLoad = false;
+    }
+
+    function renderTimetable() {
+        const container = document.getElementById('timetable-container');
+        container.innerHTML = '';
+        
+        const hours = Object.keys(data[currentMode]).sort((a, b) => {
+            const valA = parseInt(a) === 0 ? 24 : parseInt(a);
+            const valB = parseInt(b) === 0 ? 24 : parseInt(b);
+            return valA - valB;
+        });
+
+        hours.forEach(hour => {
+            const row = document.createElement('div');
+            row.id = `hour-row-${hour}`;
+            row.className = 'timetable-row flex items-start p-4 border-b border-gray-100 transition-colors duration-500';
+            
+            const hourBox = document.createElement('div');
+            hourBox.className = 'w-10 text-center font-extrabold text-gray-300 text-xl leading-none mt-1';
+            hourBox.innerText = hour;
+            
+            const minutesBox = document.createElement('div');
+            minutesBox.className = 'flex flex-wrap gap-x-6 gap-y-3 flex-1 ml-6';
+            
+            data[currentMode][hour].forEach(min => {
+                const minItem = document.createElement('div');
+                minItem.className = 'min-item group flex flex-col items-center';
+                minItem.dataset.hour = hour;
+                minItem.dataset.min = min;
+                
+                const minVal = document.createElement('span');
+                minVal.className = 'text-[17px] font-semibold text-gray-700 tabular-nums leading-none';
+                minVal.innerText = String(min).padStart(2, '0');
+                
+                const dot = document.createElement('div');
+                dot.className = 'w-1 h-1 rounded-full bg-transparent mt-1';
+                
+                minItem.appendChild(minVal);
+                minItem.appendChild(dot);
+                minutesBox.appendChild(minItem);
+            });
+            
+            row.appendChild(hourBox);
+            row.appendChild(minutesBox);
+            container.appendChild(row);
+        });
+    }
+
+    function scrollToCurrentTime() {
+        const now = new Date();
+        const curH = now.getHours();
+        const targetRow = document.getElementById(`hour-row-${curH}`);
+        if (targetRow) {
+            const container = document.getElementById('timetable-container');
+            const offset = targetRow.offsetTop - 250;
+            window.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+    }
+
+    function updateDateTime() {
+        const now = new Date();
+        const days = ['日', '月', '火', '水', '木', '金', '土'];
+        
+        document.getElementById('current-date-display').innerText = 
+            `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 (${days[now.getDay()]})`;
+
+        const curH = now.getHours();
+        const curM = now.getMinutes();
+        const curS = now.getSeconds();
+
+        let nextTrain = null;
+        const hoursToCheck = Object.keys(data[currentMode]).map(Number).sort((a,b) => {
+            const valA = a === 0 ? 24 : a;
+            const valB = b === 0 ? 24 : b;
+            return valA - valB;
+        });
+
+        for (const h of hoursToCheck) {
+            const hNormalized = h === 0 ? 24 : h;
+            const curHNormalized = curH === 0 && h === 0 ? 0 : (curH === 0 ? 24 : curH);
+
+            if (hNormalized > curHNormalized || hNormalized === curHNormalized) {
+                const mins = data[currentMode][h];
+                const foundMin = mins.find(min => hNormalized > curHNormalized || min > curM);
+                if (foundMin !== undefined) {
+                    nextTrain = { hour: h, minute: foundMin };
+                    break;
+                }
+            }
+        }
+
+        const timeEl = document.getElementById('next-train-time');
+        const timerEl = document.getElementById('arrival-timer');
+        const labelEl = document.getElementById('timer-label');
+
+        if (nextTrain) {
+            timeEl.innerText = `${String(nextTrain.hour).padStart(2,'0')}:${String(nextTrain.minute).padStart(2,'0')}`;
+            
+            let diffSeconds;
+            const nextH = nextTrain.hour === 0 ? 24 : nextTrain.hour;
+            const nowH = curH === 0 ? 0 : curH;
+
+            diffSeconds = ((nextH * 3600) + (nextTrain.minute * 60)) - ((curH * 3600) + (curM * 60) + curS);
+            
+            if (diffSeconds < 0) diffSeconds += 86400;
+
+            const diffM = Math.floor(diffSeconds / 60);
+            const diffS = diffSeconds % 60;
+            
+            timerEl.innerText = `${diffM}:${String(diffS).padStart(2,'0')}`;
+            labelEl.innerText = "出発まで";
+        } else {
+            timeEl.innerText = "--:--";
+            timerEl.innerText = "終電終了";
+            labelEl.innerText = "案内";
+            timerEl.classList.remove('pulse');
+        }
+
+        document.querySelectorAll('.timetable-row').forEach(row => row.classList.remove('active-hour'));
+        if (nextTrain) {
+            const activeRow = document.getElementById(`hour-row-${nextTrain.hour}`);
+            if (activeRow) activeRow.classList.add('active-hour');
+        }
+
+        document.querySelectorAll('.min-item').forEach(el => {
+            const valSpan = el.querySelector('span');
+            const dot = el.querySelector('div');
+            
+            valSpan.className = 'text-[17px] font-semibold text-gray-700 tabular-nums leading-none';
+            dot.className = 'w-1.5 h-1.5 rounded-full bg-transparent mt-1';
+            
+            if (nextTrain && parseInt(el.dataset.hour) === nextTrain.hour && parseInt(el.dataset.min) === nextTrain.minute) {
+                valSpan.className = 'text-[22px] font-black text-green-700 tabular-nums leading-none scale-110 transition-transform';
+                dot.className = 'w-1.5 h-1.5 rounded-full bg-green-600 mt-1 pulse';
+            } else if (nextTrain && (parseInt(el.dataset.hour) < curH || (parseInt(el.dataset.hour) === curH && parseInt(el.dataset.min) <= curM))) {
+                valSpan.classList.add('opacity-20');
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
