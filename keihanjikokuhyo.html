@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>京阪電車 時刻表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* ヘッダー背景 */
+        .header-kyobashi { background: linear-gradient(135deg, #004a26 0%, #006b38 100%); }
+        .header-noe { background: linear-gradient(135deg, #003366 0%, #00509d 100%); }
+        
+        /* タイマーの視認性向上：背景を黒くし、文字を黄色に */
+        .timer-highlight { background: rgba(0, 0, 0, 0.85); border: 2px solid rgba(255, 255, 255, 0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        .next-train-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .8; } }
+        
+        /* 現在時刻の行を強調 */
+        .active-hour { background-color: #f0fdf4; border-left: 4px solid #004a26; }
+        .active-hour-noe { background-color: #eff6ff; border-left: 4px solid #003366; }
+        
+        html { scroll-behavior: smooth; }
+        .min-item { transition: all 0.2s; }
+        .past-time { opacity: 0.25; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex justify-center">
+
+<div id="app" class="w-full max-w-md bg-white shadow-2xl min-h-screen flex flex-col relative">
+    
+    <!-- 1. 駅選択スイッチ（最上部固定）：文字を1.2倍に拡大 -->
+    <div class="bg-gray-900 text-white p-2 flex gap-1 sticky top-0 z-50">
+        <button onclick="setStation('kyobashi')" id="btn-station-kyobashi" class="flex-1 py-3 text-base font-bold rounded-lg transition-all duration-300">京橋 発</button>
+        <button onclick="setStation('noe')" id="btn-station-noe" class="flex-1 py-3 text-base font-bold rounded-lg transition-all duration-300">野江 発</button>
+    </div>
+
+    <!-- 2. ヘッダー：次の電車情報（タイマーを黄色・巨大化） -->
+    <header id="main-header" class="header-kyobashi text-white pt-5 pb-5 px-5 shadow-lg sticky top-[64px] z-40 transition-colors duration-500">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h1 class="text-2xl font-black tracking-tighter" id="route-label">京橋 → 野江</h1>
+                <p class="text-[10px] opacity-90 font-bold" id="current-date-display">----年--月--日 (--)</p>
+            </div>
+            <!-- 改良版タイマーボックス：文字サイズ3xl、黄色指定 -->
+            <div id="timer-box" class="timer-highlight px-4 py-2 rounded-2xl text-center min-w-[120px]">
+                <span class="text-[10px] block text-gray-300 font-bold leading-none mb-1 uppercase tracking-tighter" id="timer-label">あと</span>
+                <span class="text-3xl font-mono font-black text-yellow-400 pulse leading-none" id="arrival-timer">--:--</span>
+            </div>
+        </div>
+
+        <div class="next-train-card rounded-2xl p-4 shadow-inner flex justify-between items-center">
+            <div>
+                <span class="text-[10px] font-bold opacity-80 uppercase tracking-widest block mb-0.5">出発時刻</span>
+                <span class="text-4xl font-black tracking-tighter text-white" id="next-train-time">--:--</span>
+            </div>
+            <div class="text-right">
+                <span class="text-[11px] font-bold bg-black/20 px-3 py-1 rounded-full border border-white/20" id="train-type">各駅停車</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 3. ダイヤ切り替えタブ -->
+    <div class="bg-white px-4 py-3 flex gap-2 sticky top-[220px] z-30 border-b shadow-sm">
+        <button onclick="setDayType('weekday')" id="tab-weekday" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-300 border">平日</button>
+        <button onclick="setDayType('holiday')" id="tab-holiday" class="flex-1 py-2.5 text-xs font-bold rounded-xl transition-all duration-300 border">土曜・休日</button>
+    </div>
+
+    <!-- 4. 時刻表リスト -->
+    <main class="flex-1 overflow-y-auto pb-20" id="timetable-container">
+        <!-- JSで生成 -->
+    </main>
+</div>
+
+<script>
+    const timetableData = {
+        kyobashi: {
+            weekday: {
+                5: [10, 39, 47, 57],
+                6: [10, 22, 29, 42, 53],
+                7: [3, 17, 29, 42, 52, 58],
+                8: [6, 14, 21, 26, 32, 37, 48, 52, 57],
+                9: [3, 12, 26, 39, 49],
+                10: [1, 12, 23, 36, 48],
+                11: [0, 12, 24, 36, 48],
+                12: [1, 13, 25, 37, 49],
+                13: [1, 13, 25, 37, 49],
+                14: [1, 13, 25, 37, 49],
+                15: [1, 13, 25, 37, 49],
+                16: [1, 13, 25, 38, 51],
+                17: [5, 17, 27, 39, 51],
+                18: [1, 11, 19, 28, 36, 42, 50, 58],
+                19: [6, 14, 27, 39, 51],
+                20: [4, 16, 28, 39, 51],
+                21: [2, 14, 25, 37, 49],
+                22: [1, 14, 28, 43, 58],
+                23: [13, 25, 36, 52],
+                0: [8]
+            },
+            holiday: {
+                5: [10, 39, 47],
+                6: [4, 19, 34, 48],
+                7: [1, 13, 25, 37, 49],
+                8: [2, 15, 27, 38, 49],
+                9: [1, 13, 24, 36, 48],
+                10: [1, 13, 25, 38, 50],
+                11: [2, 13, 24, 36, 48],
+                12: [0, 12, 24, 37, 48],
+                13: [0, 12, 24, 37, 48],
+                14: [0, 12, 24, 37, 48],
+                15: [0, 12, 24, 37, 48],
+                16: [0, 11, 23, 35, 50],
+                17: [3, 15, 28, 39, 50],
+                18: [2, 14, 26, 37, 48],
+                19: [2, 13, 25, 37, 50],
+                20: [3, 18, 32, 48],
+                21: [3, 18, 33, 48],
+                22: [3, 18, 31, 45],
+                23: [0, 10, 22, 35, 52],
+                0: [8]
+            }
+        },
+        noe: {
+            weekday: {
+                5: [19, 34, 49, 59],
+                6: [15, 27, 38, 46, 56],
+                7: [7, 18, 26, 34, 45, 54],
+                8: [2, 10, 16, 20, 25, 32, 40, 51],
+                9: [2, 13, 19, 29, 39, 50],
+                10: [5, 16, 24, 39, 51],
+                11: [3, 15, 27, 39, 51],
+                12: [3, 15, 27, 39, 51],
+                13: [3, 15, 27, 39, 51],
+                14: [3, 15, 27, 39, 51],
+                15: [3, 15, 27, 40, 52],
+                16: [4, 16, 27, 38, 50],
+                17: [1, 13, 22, 29, 39, 51],
+                18: [3, 15, 24, 32, 41, 49, 57],
+                19: [4, 13, 20, 29, 41, 53],
+                20: [6, 18, 30, 42, 54],
+                21: [6, 18, 30, 42, 54],
+                22: [6, 19, 33, 48],
+                23: [3, 18, 34, 50],
+                0: [7]
+            },
+            holiday: {
+                5: [19, 34, 47],
+                6: [2, 14, 26, 38, 48, 59],
+                7: [10, 22, 31, 46],
+                8: [0, 12, 25, 37, 49, 59],
+                9: [13, 25, 37, 50],
+                10: [3, 14, 26, 40, 51],
+                11: [2, 15, 27, 39, 51],
+                12: [3, 15, 27, 39, 51],
+                13: [3, 15, 27, 39, 51],
+                14: [3, 15, 27, 39, 51],
+                15: [3, 15, 27, 39, 51],
+                16: [2, 14, 26, 39, 50],
+                17: [1, 14, 27, 39, 51],
+                18: [1, 14, 28, 40, 53],
+                19: [5, 17, 30, 42, 54],
+                20: [7, 19, 32, 47],
+                21: [2, 17, 32, 47],
+                22: [2, 17, 31, 46],
+                23: [1, 17, 33, 49],
+                0: [5]
+            }
+        }
+    };
+
+    let currentStation = 'kyobashi'; 
+    let currentDayType = 'weekday'; 
+
+    window.onload = () => {
+        const day = new Date().getDay();
+        currentDayType = (day === 0 || day === 6) ? 'holiday' : 'weekday';
+        updateUI();
+        setInterval(tick, 1000);
+        setTimeout(() => scrollToCurrentTime(), 600);
+    };
+
+    function setStation(station) {
+        currentStation = station;
+        updateUI();
+        scrollToCurrentTime();
+    }
+
+    function setDayType(type) {
+        currentDayType = type;
+        updateUI();
+    }
+
+    function updateUI() {
+        const btnK = document.getElementById('btn-station-kyobashi');
+        const btnN = document.getElementById('btn-station-noe');
+        const header = document.getElementById('main-header');
+        const routeLabel = document.getElementById('route-label');
+
+        if (currentStation === 'kyobashi') {
+            btnK.className = 'flex-1 py-3 text-base font-bold rounded-lg bg-white text-black shadow-md';
+            btnN.className = 'flex-1 py-3 text-base font-bold rounded-lg bg-gray-800 text-gray-400';
+            header.className = 'header-kyobashi text-white pt-5 pb-5 px-5 shadow-lg sticky top-[64px] z-40 transition-colors duration-500';
+            routeLabel.innerText = "京橋 → 野江";
+        } else {
+            btnN.className = 'flex-1 py-3 text-base font-bold rounded-lg bg-white text-black shadow-md';
+            btnK.className = 'flex-1 py-3 text-base font-bold rounded-lg bg-gray-800 text-gray-400';
+            header.className = 'header-noe text-white pt-5 pb-5 px-5 shadow-lg sticky top-[64px] z-40 transition-colors duration-500';
+            routeLabel.innerText = "野江 → 京橋";
+        }
+
+        const tabW = document.getElementById('tab-weekday');
+        const tabH = document.getElementById('tab-holiday');
+        const activeBg = currentStation === 'kyobashi' ? 'bg-green-700' : 'bg-blue-700';
+        
+        if (currentDayType === 'weekday') {
+            tabW.className = `flex-1 py-2.5 text-xs font-bold rounded-xl ${activeBg} text-white shadow-md border-transparent`;
+            tabH.className = 'flex-1 py-2.5 text-xs font-bold rounded-xl bg-gray-50 text-gray-400 border-gray-200';
+        } else {
+            tabH.className = `flex-1 py-2.5 text-xs font-bold rounded-xl ${activeBg} text-white shadow-md border-transparent`;
+            tabW.className = 'flex-1 py-2.5 text-xs font-bold rounded-xl bg-gray-50 text-gray-400 border-gray-200';
+        }
+
+        renderTimetable();
+        tick();
+    }
+
+    function renderTimetable() {
+        const container = document.getElementById('timetable-container');
+        container.innerHTML = '';
+        const data = timetableData[currentStation][currentDayType];
+        const hours = Object.keys(data).map(Number).sort((a, b) => (a === 0 ? 24 : a) - (b === 0 ? 24 : b));
+
+        hours.forEach(hour => {
+            const row = document.createElement('div');
+            row.id = `hour-row-${hour}`;
+            row.className = 'timetable-row flex items-start p-4 border-b border-gray-100 transition-colors';
+            
+            const hourBox = document.createElement('div');
+            hourBox.className = 'w-10 text-center font-black text-gray-300 text-xl leading-none mt-1';
+            hourBox.innerText = hour;
+            
+            const minutesBox = document.createElement('div');
+            minutesBox.className = 'flex flex-wrap gap-x-6 gap-y-4 flex-1 ml-6';
+            
+            data[hour].forEach(min => {
+                const minItem = document.createElement('div');
+                minItem.className = 'min-item text-[18px] font-bold text-gray-700 tabular-nums';
+                minItem.dataset.hour = hour;
+                minItem.dataset.min = min;
+                minItem.innerText = String(min).padStart(2, '0');
+                minutesBox.appendChild(minItem);
+            });
+            
+            row.appendChild(hourBox);
+            row.appendChild(minutesBox);
+            container.appendChild(row);
+        });
+    }
+
+    function tick() {
+        const now = new Date();
+        const days = ['日', '月', '火', '水', '木', '金', '土'];
+        document.getElementById('current-date-display').innerText = 
+            `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 (${days[now.getDay()]})`;
+
+        const curH = now.getHours();
+        const curM = now.getMinutes();
+        const curS = now.getSeconds();
+
+        const data = timetableData[currentStation][currentDayType];
+        let nextTrain = null;
+
+        const hoursToCheck = Object.keys(data).map(Number).sort((a, b) => (a === 0 ? 24 : a) - (b === 0 ? 24 : b));
+
+        for (let h of hoursToCheck) {
+            const normH = h === 0 ? 24 : h;
+            if (normH > curH || normH === curH) {
+                const found = data[h].find(m => (h > curH) || m > curM);
+                if (found !== undefined) {
+                    nextTrain = { hour: h, min: found };
+                    break;
+                }
+            }
+        }
+
+        const timeEl = document.getElementById('next-train-time');
+        const timerEl = document.getElementById('arrival-timer');
+
+        if (nextTrain) {
+            timeEl.innerText = `${String(nextTrain.hour).padStart(2,'0')}:${String(nextTrain.min).padStart(2,'0')}`;
+            const targetH = nextTrain.hour === 0 ? 24 : nextTrain.hour;
+            const diffSec = ((targetH * 3600) + (nextTrain.min * 60)) - ((curH * 3600) + (curM * 60) + curS);
+            
+            const m = Math.floor(diffSec / 60);
+            const s = diffSec % 60;
+            timerEl.innerText = `${m}:${String(s).padStart(2, '0')}`;
+        } else {
+            timeEl.innerText = "--:--";
+            timerEl.innerText = "終了";
+        }
+
+        document.querySelectorAll('.timetable-row').forEach(r => r.classList.remove('active-hour', 'active-hour-noe'));
+        document.querySelectorAll('.min-item').forEach(el => {
+            const h = parseInt(el.dataset.hour);
+            const m = parseInt(el.dataset.min);
+            const normH = h === 0 ? 24 : h;
+            el.classList.remove('text-green-600', 'text-blue-600', 'scale-125', 'past-time');
+            
+            if (nextTrain && h === nextTrain.hour && m === nextTrain.min) {
+                const colorClass = currentStation === 'kyobashi' ? 'text-green-600' : 'text-blue-600';
+                const bgClass = currentStation === 'kyobashi' ? 'active-hour' : 'active-hour-noe';
+                el.classList.add(colorClass, 'scale-125');
+                const row = document.getElementById(`hour-row-${h}`);
+                if (row) row.classList.add(bgClass);
+            } else if (normH < curH || (normH === curH && m <= curM)) {
+                el.classList.add('past-time');
+            }
+        });
+    }
+
+    function scrollToCurrentTime() {
+        const h = new Date().getHours();
+        const row = document.getElementById(`hour-row-${h}`);
+        if (row) {
+            const offset = row.offsetTop - 280;
+            window.scrollTo({ top: offset, behavior: 'smooth' });
+        }
+    }
+</script>
+</body>
+</html>
