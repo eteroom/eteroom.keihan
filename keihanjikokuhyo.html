@@ -9,18 +9,15 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         body { font-family: 'Inter', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
         
-        /* ヘッダー背景 */
         .header-kyobashi { background: linear-gradient(135deg, #004a26 0%, #006b38 100%); }
         .header-noe { background: linear-gradient(135deg, #003366 0%, #00509d 100%); }
         
-        /* タイマーの視認性向上：背景を黒くし、文字を黄色に */
         .timer-highlight { background: rgba(0, 0, 0, 0.85); border: 2px solid rgba(255, 255, 255, 0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
         .next-train-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
         
         .pulse { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .8; } }
         
-        /* 現在時刻の行を強調 */
         .active-hour { background-color: #f0fdf4; border-left: 4px solid #004a26; }
         .active-hour-noe { background-color: #eff6ff; border-left: 4px solid #003366; }
         
@@ -33,30 +30,36 @@
 
 <div id="app" class="w-full max-w-md bg-white shadow-2xl min-h-screen flex flex-col relative">
     
-    <!-- 1. 駅選択スイッチ（最上部固定）：文字を1.2倍に拡大 -->
+    <!-- 1. 駅選択スイッチ -->
     <div class="bg-gray-900 text-white p-2 flex gap-1 sticky top-0 z-50">
         <button onclick="setStation('kyobashi')" id="btn-station-kyobashi" class="flex-1 py-3 text-base font-bold rounded-lg transition-all duration-300">京橋 発</button>
         <button onclick="setStation('noe')" id="btn-station-noe" class="flex-1 py-3 text-base font-bold rounded-lg transition-all duration-300">野江 発</button>
     </div>
 
-    <!-- 2. ヘッダー：次の電車情報（タイマーを黄色・巨大化） -->
+    <!-- 2. ヘッダー：次の電車情報 -->
     <header id="main-header" class="header-kyobashi text-white pt-5 pb-5 px-5 shadow-lg sticky top-[64px] z-40 transition-colors duration-500">
         <div class="flex justify-between items-center mb-4">
             <div>
                 <h1 class="text-2xl font-black tracking-tighter" id="route-label">京橋 → 野江</h1>
                 <p class="text-[10px] opacity-90 font-bold" id="current-date-display">----年--月--日 (--)</p>
             </div>
-            <!-- 改良版タイマーボックス：文字サイズ3xl、黄色指定 -->
             <div id="timer-box" class="timer-highlight px-4 py-2 rounded-2xl text-center min-w-[120px]">
                 <span class="text-[10px] block text-gray-300 font-bold leading-none mb-1 uppercase tracking-tighter" id="timer-label">あと</span>
                 <span class="text-3xl font-mono font-black text-yellow-400 pulse leading-none" id="arrival-timer">--:--</span>
             </div>
         </div>
 
-        <div class="next-train-card rounded-2xl p-4 shadow-inner flex justify-between items-center">
-            <div>
-                <span class="text-[10px] font-bold opacity-80 uppercase tracking-widest block mb-0.5">出発時刻</span>
-                <span class="text-4xl font-black tracking-tighter text-white" id="next-train-time">--:--</span>
+        <div class="next-train-card rounded-2xl p-4 shadow-inner flex justify-between items-end">
+            <div class="flex items-baseline gap-3">
+                <div class="flex flex-col">
+                    <span class="text-[10px] font-bold opacity-80 uppercase tracking-widest block mb-0.5">出発時刻</span>
+                    <span class="text-4xl font-black tracking-tighter text-white leading-none" id="next-train-time">--:--</span>
+                </div>
+                <!-- 次々発の表示エリア -->
+                <div class="flex flex-col opacity-70 border-l border-white/30 pl-3">
+                    <span class="text-[9px] font-bold uppercase tracking-tighter mb-0.5">次々発</span>
+                    <span class="text-xl font-bold tracking-tighter text-white leading-none" id="subsequent-train-time">--:--</span>
+                </div>
             </div>
             <div class="text-right">
                 <span class="text-[11px] font-bold bg-black/20 px-3 py-1 rounded-full border border-white/20" id="train-type">各駅停車</span>
@@ -272,51 +275,68 @@
         const curS = now.getSeconds();
 
         const data = timetableData[currentStation][currentDayType];
-        let nextTrain = null;
+        
+        // 全ての電車をリストアップしてソート
+        const allTrains = [];
+        Object.keys(data).forEach(h => {
+            const hour = parseInt(h);
+            data[h].forEach(m => {
+                // 0時台は24時として扱う
+                const sortH = hour === 0 ? 24 : hour;
+                allTrains.push({ hour, minute: m, sortVal: sortH * 60 + m });
+            });
+        });
+        allTrains.sort((a, b) => a.sortVal - b.sortVal);
 
-        const hoursToCheck = Object.keys(data).map(Number).sort((a, b) => (a === 0 ? 24 : a) - (b === 0 ? 24 : b));
+        const currentTotalMin = curH * 60 + curM;
+        const upcoming = allTrains.filter(t => t.sortVal > currentTotalMin);
 
-        for (let h of hoursToCheck) {
-            const normH = h === 0 ? 24 : h;
-            if (normH > curH || normH === curH) {
-                const found = data[h].find(m => (h > curH) || m > curM);
-                if (found !== undefined) {
-                    nextTrain = { hour: h, min: found };
-                    break;
-                }
-            }
-        }
+        const nextTrain = upcoming.length > 0 ? upcoming[0] : null;
+        const subsequentTrain = upcoming.length > 1 ? upcoming[1] : null;
 
         const timeEl = document.getElementById('next-train-time');
+        const subTimeEl = document.getElementById('subsequent-train-time');
         const timerEl = document.getElementById('arrival-timer');
 
         if (nextTrain) {
-            timeEl.innerText = `${String(nextTrain.hour).padStart(2,'0')}:${String(nextTrain.min).padStart(2,'0')}`;
-            const targetH = nextTrain.hour === 0 ? 24 : nextTrain.hour;
-            const diffSec = ((targetH * 3600) + (nextTrain.min * 60)) - ((curH * 3600) + (curM * 60) + curS);
+            timeEl.innerText = `${String(nextTrain.hour).padStart(2,'0')}:${String(nextTrain.minute).padStart(2,'0')}`;
             
-            const m = Math.floor(diffSec / 60);
-            const s = diffSec % 60;
+            // 次々発の表示
+            if (subsequentTrain) {
+                subTimeEl.innerText = `${String(subsequentTrain.hour).padStart(2,'0')}:${String(subsequentTrain.minute).padStart(2,'0')}`;
+            } else {
+                subTimeEl.innerText = "--:--";
+            }
+
+            const targetVal = nextTrain.sortVal;
+            const diffSec = (targetVal * 60) - (curH * 3600 + curM * 60 + curS);
+            
+            const m = Math.max(0, Math.floor(diffSec / 60));
+            const s = Math.max(0, diffSec % 60);
             timerEl.innerText = `${m}:${String(s).padStart(2, '0')}`;
         } else {
             timeEl.innerText = "--:--";
+            subTimeEl.innerText = "--:--";
             timerEl.innerText = "終了";
         }
 
+        // 時刻表ハイライト処理
         document.querySelectorAll('.timetable-row').forEach(r => r.classList.remove('active-hour', 'active-hour-noe'));
         document.querySelectorAll('.min-item').forEach(el => {
             const h = parseInt(el.dataset.hour);
             const m = parseInt(el.dataset.min);
             const normH = h === 0 ? 24 : h;
+            const itemSortVal = normH * 60 + m;
+
             el.classList.remove('text-green-600', 'text-blue-600', 'scale-125', 'past-time');
             
-            if (nextTrain && h === nextTrain.hour && m === nextTrain.min) {
+            if (nextTrain && h === nextTrain.hour && m === nextTrain.minute) {
                 const colorClass = currentStation === 'kyobashi' ? 'text-green-600' : 'text-blue-600';
                 const bgClass = currentStation === 'kyobashi' ? 'active-hour' : 'active-hour-noe';
                 el.classList.add(colorClass, 'scale-125');
                 const row = document.getElementById(`hour-row-${h}`);
                 if (row) row.classList.add(bgClass);
-            } else if (normH < curH || (normH === curH && m <= curM)) {
+            } else if (itemSortVal < (curH * 60 + curM)) {
                 el.classList.add('past-time');
             }
         });
