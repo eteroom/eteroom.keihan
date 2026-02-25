@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D擁壁モデラー for BricsCAD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* カスタムスクロールバー */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-200">
+    
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900 flex items-center gap-2">
+                    3D擁壁モデラー <span class="text-blue-600">for BricsCAD</span>
+                </h1>
+                <p class="text-slate-500 font-medium text-sm">Ver 2.6 HTML (Force Command Reset)</p>
+            </div>
+            <button id="helpBtn" class="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-full text-sm font-semibold hover:bg-slate-50 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                ヘルプ
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Params & Favorites -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- パラメータ設定 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        パラメータ
+                    </h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">タイプ</label>
+                            <select id="wallType" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500/20">
+                                <option value="gravity">重力式擁壁</option>
+                                <option value="lshape">L型擁壁</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">壁高 (H)</label>
+                                <input type="number" id="height" value="2000" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-blue-600 font-bold outline-none focus:border-blue-400" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">天端幅 (W1)</label>
+                                <input type="number" id="topWidth" value="500" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono outline-none focus:border-blue-400" />
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">底版幅 (W2)</label>
+                                <input type="number" id="bottomWidth" value="1200" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono outline-none focus:border-blue-400" />
+                            </div>
+                            <div id="baseThicknessContainer" class="opacity-30">
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">底版厚 (T)</label>
+                                <input type="number" id="baseThickness" value="400" disabled class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono outline-none focus:border-blue-400" />
+                            </div>
+                        </div>
+                        <div id="haunchSizeContainer" class="opacity-30">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">ハンチ (H1)</label>
+                            <input type="number" id="haunchSize" value="150" disabled class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono outline-none focus:border-blue-400" />
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">延長 (L)</label>
+                            <input type="number" id="extrudeHeight" value="5000" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono outline-none focus:border-blue-400" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- お気に入り -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        お気に入り
+                    </h2>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="favName" placeholder="名称 (例: H2000標準)" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:border-blue-400" />
+                        <button id="addFavBtn" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-900 transition-colors">追加</button>
+                    </div>
+                    <div id="favList" class="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        <!-- JSでリストを描画 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Preview & Script -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- プレビュー -->
+                <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative w-full h-[360px]">
+                    <div class="absolute top-4 left-4 bg-white/80 backdrop-blur px-2 py-1 rounded border border-slate-100 text-[10px] font-bold text-slate-400 uppercase z-10">断面プレビュー</div>
+                    <canvas id="previewCanvas" class="w-full h-full"></canvas>
+                </div>
+
+                <!-- スクリプト -->
+                <div class="bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
+                    <div class="flex justify-between items-center px-6 py-3 bg-slate-800/50 border-b border-slate-700">
+                        <span class="text-slate-400 text-xs font-mono">BricsCAD_Script.scr</span>
+                        <button id="copyBtn" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-all">
+                            <svg id="copyIcon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            <span id="copyText">コピー</span>
+                        </button>
+                    </div>
+                    <textarea id="scriptOutput" readonly class="w-full h-56 p-6 font-mono text-[13px] bg-transparent text-emerald-400 outline-none resize-none custom-scrollbar"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダル -->
+    <div id="modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
+            <h3 class="text-xl font-bold mb-2" id="modalTitle">使い方</h3>
+            <p class="text-slate-600 text-sm mb-6 leading-relaxed" id="modalBody">
+                左側のパラメータを設定し、「コピー」ボタンを押してスクリプトをコピーします。<br><br>
+                BricsCADを開き、コマンドラインに貼り付け（Ctrl+V または 右クリック）すると、自動的に3Dモデルが生成されます。
+            </p>
+            <button id="closeModalBtn" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-colors">了解</button>
+        </div>
+    </div>
+
+    <!-- アプリケーションロジック -->
+    <script>
+        const CONFIG_KEY = 'retaining_wall_v21_favs';
+        let favorites = JSON.parse(localStorage.getItem(CONFIG_KEY)) || [];
+
+        // DOM Elements
+        const els = {
+            wallType: document.getElementById('wallType'),
+            height: document.getElementById('height'),
+            topWidth: document.getElementById('topWidth'),
+            bottomWidth: document.getElementById('bottomWidth'),
+            baseThickness: document.getElementById('baseThickness'),
+            haunchSize: document.getElementById('haunchSize'),
+            extrudeHeight: document.getElementById('extrudeHeight'),
+            baseContainer: document.getElementById('baseThicknessContainer'),
+            haunchContainer: document.getElementById('haunchSizeContainer'),
+            canvas: document.getElementById('previewCanvas'),
+            scriptOut: document.getElementById('scriptOutput'),
+            copyBtn: document.getElementById('copyBtn'),
+            copyText: document.getElementById('copyText'),
+            copyIcon: document.getElementById('copyIcon'),
+            addFavBtn: document.getElementById('addFavBtn'),
+            favName: document.getElementById('favName'),
+            favList: document.getElementById('favList'),
+            helpBtn: document.getElementById('helpBtn'),
+            modal: document.getElementById('modal'),
+            modalContent: document.getElementById('modalContent'),
+            closeModalBtn: document.getElementById('closeModalBtn')
+        };
+
+        // 入力値の取得
+        function getParams() {
+            return {
+                wallType: els.wallType.value,
+                height: parseFloat(els.height.value) || 0,
+                topWidth: parseFloat(els.topWidth.value) || 0,
+                bottomWidth: parseFloat(els.bottomWidth.value) || 0,
+                baseThickness: parseFloat(els.baseThickness.value) || 0,
+                haunchSize: parseFloat(els.haunchSize.value) || 0,
+                extrudeHeight: parseFloat(els.extrudeHeight.value) || 0,
+            };
+        }
+
+        // UIの無効化切り替え
+        function updateDisables() {
+            const isGravity = els.wallType.value === 'gravity';
+            els.baseThickness.disabled = isGravity;
+            els.haunchSize.disabled = isGravity;
+            
+            if(isGravity) {
+                els.baseContainer.classList.add('opacity-30');
+                els.haunchContainer.classList.add('opacity-30');
+            } else {
+                els.baseContainer.classList.remove('opacity-30');
+                els.haunchContainer.classList.remove('opacity-30');
+            }
+        }
+
+        // キャンバス描画
+        function draw() {
+            const canvas = els.canvas;
+            const ctx = canvas.getContext('2d');
+            const p = getParams();
+            
+            // 親要素のサイズに合わせてキャンバスの内部解像度を設定
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            const w = rect.width;
+            const h_canv = rect.height;
+            ctx.clearRect(0, 0, w, h_canv);
+
+            const margin = 60;
+            const maxVal = Math.max(p.height, p.bottomWidth, 500);
+            const scale = (h_canv - margin * 2) / maxVal;
+            const offsetX = (w - p.bottomWidth * scale) / 2;
+            const offsetY = h_canv - margin;
+
+            // 背景グリッド
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            const step = 500 * scale;
+            for (let x = offsetX % step; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h_canv); ctx.stroke(); }
+            for (let y = offsetY % step; y < h_canv; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+            // 頂点計算
+            let pts = [];
+            if (p.wallType === 'gravity') {
+                pts = [
+                    {x: 0, y: 0}, 
+                    {x: p.bottomWidth - p.topWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: 0}
+                ];
+            } else {
+                pts = [
+                    {x: 0, y: 0}, 
+                    {x: 0, y: p.baseThickness}, 
+                    {x: Math.max(0, p.bottomWidth - p.topWidth - p.haunchSize), y: p.baseThickness}, 
+                    {x: p.bottomWidth - p.topWidth, y: p.baseThickness + p.haunchSize}, 
+                    {x: p.bottomWidth - p.topWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: 0}
+                ];
+            }
+
+            // 描画
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#2563eb';
+            ctx.fillStyle = 'rgba(37, 99, 235, 0.05)';
+            ctx.moveTo(offsetX + pts[0].x * scale, offsetY - pts[0].y * scale);
+            pts.forEach(pt => ctx.lineTo(offsetX + pt.x * scale, offsetY - pt.y * scale));
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 寸法文字
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`H:${p.height}`, offsetX - 30, offsetY - (p.height / 2) * scale);
+            ctx.fillText(`W2:${p.bottomWidth}`, offsetX + (p.bottomWidth / 2) * scale, offsetY + 25);
+            ctx.fillText(`W1:${p.topWidth}`, offsetX + (p.bottomWidth - p.topWidth / 2) * scale, offsetY - p.height * scale - 15);
+        }
+
+        // スクリプト生成 (Ver 2.6: Force Command Reset 方式)
+        function generateScript() {
+            const p = getParams();
+            let pts = [];
+            
+            if (p.wallType === 'gravity') {
+                pts = [
+                    {x: 0, y: 0}, 
+                    {x: p.bottomWidth - p.topWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: 0}
+                ];
+            } else {
+                pts = [
+                    {x: 0, y: 0}, 
+                    {x: 0, y: p.baseThickness}, 
+                    {x: Math.max(0, p.bottomWidth - p.topWidth - p.haunchSize), y: p.baseThickness}, 
+                    {x: p.bottomWidth - p.topWidth, y: p.baseThickness + p.haunchSize}, 
+                    {x: p.bottomWidth - p.topWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: p.height}, 
+                    {x: p.bottomWidth, y: 0}
+                ];
+            }
+
+            const s = [
+                "CMDECHO 0",
+                "OSMODE 0",
+                "DELOBJ 1",
+                "_UCS",
+                "_World",
+                "_PLINE",
+                ...pts.map(pt => `_non ${pt.x.toFixed(2)},${pt.y.toFixed(2)},0`),
+                "_C",
+                "_REGION",
+                "_last",
+                "",
+                "_EXTRUDE",
+                "_last",
+                "",
+                `${p.extrudeHeight}`,
+                "_ROTATE3D",
+                "_last",
+                "",
+                "X",
+                "0,0,0",
+                "90",
+                "_VPOINT",
+                "1,-1,1",
+                "_ZOOM",
+                "_E",
+                "CMDECHO 1",
+                ""
+            ].join("\n");
+            
+            els.scriptOut.value = s;
+        }
+
+        // イベントリスナーの一括設定
+        ['wallType', 'height', 'topWidth', 'bottomWidth', 'baseThickness', 'haunchSize', 'extrudeHeight'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                updateDisables();
+                draw();
+                generateScript();
+            });
+        });
+
+        // コピー機能
+        els.copyBtn.addEventListener('click', () => {
+            els.scriptOut.select();
+            document.execCommand('copy');
+            
+            // UI更新
+            els.copyBtn.classList.replace('bg-blue-600', 'bg-emerald-500');
+            els.copyBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-400');
+            els.copyText.textContent = '完了!';
+            els.copyIcon.innerHTML = `<path d="M20 6L9 17l-5-5"></path>`; // Check icon
+            
+            setTimeout(() => {
+                els.copyBtn.classList.replace('bg-emerald-500', 'bg-blue-600');
+                els.copyBtn.classList.replace('hover:bg-emerald-400', 'hover:bg-blue-500');
+                els.copyText.textContent = 'コピー';
+                els.copyIcon.innerHTML = `<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>`; // Copy icon
+            }, 2000);
+        });
+
+        // お気に入り描画
+        function renderFavorites() {
+            els.favList.innerHTML = '';
+            favorites.forEach((fav, index) => {
+                const div = document.createElement('div');
+                div.className = 'group flex items-center justify-between p-2 bg-slate-50 border border-slate-100 rounded-lg hover:border-blue-300 cursor-pointer transition-all text-xs';
+                div.innerHTML = `
+                    <div class="flex-1 pointer-events-none">
+                        <span class="font-bold text-slate-800">${fav.name}</span>
+                        <span class="ml-2 text-slate-400">H:${fav.height} / ${fav.wallType === 'gravity' ? '重力' : 'L型'}</span>
+                    </div>
+                    <button class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1" data-index="${index}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                `;
+                
+                // 適用イベント
+                div.addEventListener('click', (e) => {
+                    if (e.target.closest('button')) return; // 削除ボタンクリック時は無視
+                    els.wallType.value = fav.wallType;
+                    els.height.value = fav.height;
+                    els.topWidth.value = fav.topWidth;
+                    els.bottomWidth.value = fav.bottomWidth;
+                    els.baseThickness.value = fav.baseThickness;
+                    els.haunchSize.value = fav.haunchSize;
+                    els.extrudeHeight.value = fav.extrudeHeight;
+                    updateDisables();
+                    draw();
+                    generateScript();
+                });
+
+                // 削除イベント
+                const delBtn = div.querySelector('button');
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    favorites.splice(index, 1);
+                    localStorage.setItem(CONFIG_KEY, JSON.stringify(favorites));
+                    renderFavorites();
+                });
+
+                els.favList.appendChild(div);
+            });
+        }
+
+        // お気に入り追加
+        els.addFavBtn.addEventListener('click', () => {
+            const name = els.favName.value.trim();
+            if (!name) return;
+            const newFav = { name, ...getParams() };
+            favorites.unshift(newFav);
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(favorites));
+            els.favName.value = '';
+            renderFavorites();
+        });
+
+        // モーダル制御
+        function showModal() {
+            els.modal.classList.remove('hidden');
+            // 少し遅延させてopacityを変更し、アニメーションを発火
+            setTimeout(() => {
+                els.modal.classList.remove('opacity-0');
+                els.modalContent.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function hideModal() {
+            els.modal.classList.add('opacity-0');
+            els.modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                els.modal.classList.add('hidden');
+            }, 300); // transition duration と合わせる
+        }
+
+        els.helpBtn.addEventListener('click', showModal);
+        els.closeModalBtn.addEventListener('click', hideModal);
+        els.modal.addEventListener('click', (e) => {
+            if (e.target === els.modal) hideModal();
+        });
+
+        // ウィンドウリサイズ時の再描画
+        window.addEventListener('resize', draw);
+
+        // 初期化
+        updateDisables();
+        draw();
+        generateScript();
+        renderFavorites();
+
+    </script>
+</body>
+</html>
