@@ -80,6 +80,7 @@
 </div>
 
 <script>
+    // 最新・正確な時刻表データ（ユーザー提供のテキストデータから反映）
     const timetableData = {
         kyobashi: {
             weekday: {
@@ -88,7 +89,7 @@
                 7: [3, 17, 29, 42, 52, 58],
                 8: [6, 14, 21, 26, 32, 37, 48, 52, 57],
                 9: [3, 12, 26, 39, 49],
-                10: [1, 12, 23, 36, 48],
+                10: [1, 12, 23, 36, 47],
                 11: [0, 12, 24, 36, 48],
                 12: [1, 13, 25, 37, 49],
                 13: [1, 13, 25, 37, 49],
@@ -101,7 +102,7 @@
                 20: [4, 16, 28, 39, 51],
                 21: [2, 14, 25, 37, 49],
                 22: [1, 14, 28, 43, 58],
-                23: [13, 25, 36, 52],
+                23: [13, 25, 36, 51],
                 0: [8]
             },
             holiday: {
@@ -113,9 +114,9 @@
                 10: [1, 13, 25, 38, 50],
                 11: [2, 13, 24, 36, 48],
                 12: [0, 12, 24, 37, 48],
-                13: [0, 12, 24, 37, 48],
-                14: [0, 12, 24, 37, 48],
-                15: [0, 12, 24, 37, 48],
+                13: [0, 12, 24, 36, 48],
+                14: [0, 12, 24, 36, 48],
+                15: [0, 12, 24, 36, 48],
                 16: [0, 11, 23, 35, 50],
                 17: [3, 15, 28, 39, 50],
                 18: [2, 14, 26, 37, 48],
@@ -141,19 +142,19 @@
                 14: [3, 15, 27, 39, 51],
                 15: [3, 15, 27, 40, 52],
                 16: [4, 16, 27, 38, 50],
-                17: [1, 13, 22, 29, 39, 51],
-                18: [3, 15, 24, 32, 41, 49, 57],
-                19: [4, 13, 20, 29, 41, 53],
-                20: [6, 18, 30, 42, 54],
-                21: [6, 18, 30, 42, 54],
-                22: [6, 19, 33, 48],
-                23: [3, 18, 34, 50],
-                0: [7]
+                17: [1, 13, 22, 26, 36, 44, 51],
+                18: [2, 8, 14, 23, 28, 36, 50],
+                19: [2, 13, 25, 35, 46, 55],
+                20: [1, 12, 24, 36, 48, 59],
+                21: [6, 17, 29, 41, 53],
+                22: [6, 17, 31, 44, 56],
+                23: [12, 29, 47],
+                0: [2]
             },
             holiday: {
                 5: [19, 34, 47],
                 6: [2, 14, 26, 38, 48, 59],
-                7: [10, 22, 31, 46],
+                7: [1, 22, 31, 46],
                 8: [0, 12, 25, 37, 49, 59],
                 9: [13, 25, 37, 50],
                 10: [3, 14, 26, 40, 51],
@@ -165,12 +166,12 @@
                 16: [2, 14, 26, 39, 50],
                 17: [1, 14, 27, 39, 51],
                 18: [1, 14, 28, 40, 53],
-                19: [5, 17, 30, 42, 54],
-                20: [7, 19, 32, 47],
-                21: [2, 17, 32, 47],
-                22: [2, 17, 31, 46],
-                23: [1, 17, 33, 49],
-                0: [5]
+                19: [5, 16, 27, 40, 51],
+                20: [2, 15, 27, 37, 47, 59],
+                21: [9, 23, 37, 52],
+                22: [4, 22, 37, 51],
+                23: [8, 28, 38, 47],
+                0: [2]
             }
         }
     };
@@ -281,7 +282,6 @@
         Object.keys(data).forEach(h => {
             const hour = parseInt(h);
             data[h].forEach(m => {
-                // 0時台は24時として扱う
                 const sortH = hour === 0 ? 24 : hour;
                 allTrains.push({ hour, minute: m, sortVal: sortH * 60 + m });
             });
@@ -291,8 +291,8 @@
         const currentTotalMin = curH * 60 + curM;
         const upcoming = allTrains.filter(t => t.sortVal > currentTotalMin);
 
-        const nextTrain = upcoming.length > 0 ? upcoming[0] : null;
-        const subsequentTrain = upcoming.length > 1 ? upcoming[1] : null;
+        const nextTrain = upcoming.length > 0 ? upcoming[0] : (allTrains.length > 0 ? {...allTrains[0], sortVal: allTrains[0].sortVal + 24*60} : null);
+        const subsequentTrain = upcoming.length > 1 ? upcoming[1] : (upcoming.length === 1 && allTrains.length > 0 ? {...allTrains[0], sortVal: allTrains[0].sortVal + 24*60} : (allTrains.length > 1 ? {...allTrains[1], sortVal: allTrains[1].sortVal + 24*60} : null));
 
         const timeEl = document.getElementById('next-train-time');
         const subTimeEl = document.getElementById('subsequent-train-time');
@@ -301,26 +301,28 @@
         if (nextTrain) {
             timeEl.innerText = `${String(nextTrain.hour).padStart(2,'0')}:${String(nextTrain.minute).padStart(2,'0')}`;
             
-            // 次々発の表示
             if (subsequentTrain) {
                 subTimeEl.innerText = `${String(subsequentTrain.hour).padStart(2,'0')}:${String(subsequentTrain.minute).padStart(2,'0')}`;
             } else {
                 subTimeEl.innerText = "--:--";
             }
 
-            const targetVal = nextTrain.sortVal;
-            const diffSec = (targetVal * 60) - (curH * 3600 + curM * 60 + curS);
+            const diffSec = (nextTrain.sortVal * 60) - (curH * 3600 + curM * 60 + curS);
             
-            const m = Math.max(0, Math.floor(diffSec / 60));
-            const s = Math.max(0, diffSec % 60);
-            timerEl.innerText = `${m}:${String(s).padStart(2, '0')}`;
+            if (diffSec < 0) {
+                 timerEl.innerText = "0:00";
+            } else {
+                const m = Math.floor(diffSec / 60);
+                const s = diffSec % 60;
+                timerEl.innerText = `${m}:${String(s).padStart(2, '0')}`;
+            }
         } else {
             timeEl.innerText = "--:--";
             subTimeEl.innerText = "--:--";
             timerEl.innerText = "終了";
         }
 
-        // 時刻表ハイライト処理
+        // ハイライト
         document.querySelectorAll('.timetable-row').forEach(r => r.classList.remove('active-hour', 'active-hour-noe'));
         document.querySelectorAll('.min-item').forEach(el => {
             const h = parseInt(el.dataset.hour);
@@ -330,13 +332,13 @@
 
             el.classList.remove('text-green-600', 'text-blue-600', 'scale-125', 'past-time');
             
-            if (nextTrain && h === nextTrain.hour && m === nextTrain.minute) {
+            if (nextTrain && h === nextTrain.hour && m === nextTrain.minute && nextTrain.sortVal < 1440) {
                 const colorClass = currentStation === 'kyobashi' ? 'text-green-600' : 'text-blue-600';
                 const bgClass = currentStation === 'kyobashi' ? 'active-hour' : 'active-hour-noe';
                 el.classList.add(colorClass, 'scale-125');
                 const row = document.getElementById(`hour-row-${h}`);
                 if (row) row.classList.add(bgClass);
-            } else if (itemSortVal < (curH * 60 + curM)) {
+            } else if (itemSortVal < currentTotalMin) {
                 el.classList.add('past-time');
             }
         });
